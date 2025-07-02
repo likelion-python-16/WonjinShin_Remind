@@ -1,0 +1,520 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+
+{% if user.is_authenticated %}
+    {# --- 검색바 추가 --- #}
+    <div class="search-bar">
+        <input type="text"id="searchInput"placeholder="검색어를 입력하세요">
+        <button id="searchBtn" class="btn">검색</button>
+    </div>
+    {# --- 검색바 끝 --- #}
+    
+    <div class="todocontainer"></div>
+    <div class="pagination"></div>
+    <button class="todoCreate" id="createBtn"> Todo 등록하기</button>
+
+{% else %}
+    <p>할 일 목록은 로그인 후에 확인하실 수 있습니다.</p>
+{% endif %}
+
+<script>
+let currentPage = 1; // 현재 페이지를 기억하는 전역변수
+let currentSearch = "";   // ✅← 수정: 검색어를 기억할 전역 변수
+
+// 1. 문서가 완전히 로드되면 초기화 함수 실행
+document.addEventListener("DOMContentLoaded", init);
+
+
+// 2. 초기화: UI이벤트 연결 및 첫 페이지 Todo 목록 로드
+function init(){
+    UIEvents();  // 버튼 이벤트 연결
+    loadTodoList(1); //첫 페이지 목록 불러오기 /데이터가 1000개의 글이 있는겁니다. 5개 페이이지네이션
+}
+
+// 2-1 UI 이벤트 바인딩: "Todo 등록하기" 버튼 클릭 시 등록 페이지로 이동
+function UIEvents(){
+    document.getElementById("createBtn")
+        .addEventListener("click", onCreateClick);
+    /* 검색 버튼 이벤트 바인딩 */
+    document.getElementById("searchBtn")
+        .addEventListener("click", () =>{
+            currentSearch = document.getElementById("searchInput").value.trim();
+            loadTodoList(1); // 새로고침 (list, page, search))
+        })
+        /*
+        Input 입력값을 읽어온다.
+        앞뒤 공백을 제거한 입력값을 변수에 저장 공백값을 제거하지않으면 쓸데없는 데이터들이 같이 따라 불려온다.
+        데이터 호출(재요청)
+        */
+}
+
+// 2-1-1. 등록 버튼 클릭 시 /todo/create/로 이동
+function onCreateClick(){
+    window.location.href = "/todo/create/";
+}
+
+ // 3. 서버에서 Todo 목록(리스트) 불러오기
+function loadTodoList(page){
+    currentPage = page; // 현제 페이지의 변수 생성
+    fetchTodoData(currentPage, currentSearch)   // 서버로부터 데이터 요청
+    .then(data => {
+        const todos = extractTodoArray(data); //
+        renderTodoList(todos); //탬플릿을 꾸며서 화면에 출력하기 함수
+        renderPagination(data, page);
+        console.log("data". data);
+        console.log("data.data", data.data);
+    })
+    .catch(err => console.error('리스트 로드 실패',err));
+}
+
+// 3-1. axios를 이용해 서버로부터 특정 페이지의 todo 목록 가져오기
+function fetchTodoData(page, search=""){
+    return axiosInstance
+    //.get(`/todo/viewsets/view/?page=$(currentPage)&search=`) // 페이지네이션 데이터 요청
+    .get(`/todo/viewsets/view/`, {
+        params: {page, search} // URL 쿼리스트링을 자동으로 구성해주는 옵션
+    })
+    .then(res => {
+        console.log("응답데이터:",res.data);
+        return res.data;
+    });
+}
+
+// 3-2. API 응답 형식에 따라 Todo 배열 추출(페이지네이션들어오면 if 추가)
+function extractTodoArray(data){
+    if(Array.isArray(data)) return data; //Array.isArray 배열인지 아닌지 판단하는 Java script 내장문법 /데이터 검수
+    if(Array.isArray(data.data)) return data.data;
+    return [];
+}
+
+// 3-3. 추출된 Todo 항목들을 화면에 렌더링
+function renderTodoList(todos){
+    const container = document.querySelector(".todocontainer"); // .todocontainer{}
+    container.innerHTML = "";
+    todos.forEach(todo => { 
+        console.log("todo.id 확인", todo.id);
+        container.appendChild(createTodoElement(todo))
+    });
+}
+
+// 3-3-1. 단일 Todo 객체를 HTML 요소로 생성
+function createTodoElement(todo){
+    const div = document.createElement("div");
+    div.className = "todo-item"; // <div class "todo-item"></div>
+
+    // 완료된 항목이면 밑줄 적용
+    if (todo.complete){
+        div.classList.add("completed");
+    }
+
+    // 목록 클릭 시 상세 페이지 이동
+    div.addEventListener("click", () => detailView(todo.id))
+
+    // HTML 내용 설정
+    div.innerHTML = `
+        <p><strong>Name:</strong> ${todo.name}</p>
+        <p><strong>Description:</strong> ${todo.description}</p>
+        <p><strong>Complete:</strong> ${todo.complete}</p>
+        <p><strong>Completed At:</strong> ${datetimeToString(todo.completed_at)}</p>
+        <p><strong>Experience Points:</strong> ${todo.exp}</p>
+        <p><strong>Image:</strong><br> ${todo.image ? `<img src="${todo.image}" alt="${todo.image}" width="150">` : ""}</p>
+        <button class="completeBtn">완료</button>
+       <div class="todo-interactions">
+            <button class="social-btn likeBtn" data-id="${todo.id}"><span class="icon">${todo.is_liked ? '💔' : '❤️'}</span> <span class="count">${todo.like_count}</span></button>
+            <button class="social-btn bookmarkBtn" data-id="${todo.id}"><span class="icon">🔖</span><span class="count">${todo.bookmark_count}</span></button>
+            <button class="social-btn commentToggleBtn"><span class="icon">💬</span><span class="count">${todo.comment_count || 0}</span></button>
+            <button class="social"><a href="/interaction/todo/detail/${todo.id}/" target="_blank" class="detail-link">MY댓글</a></button>
+        </div>
+
+        <div class="commentBox" style="display:none;">
+            <ul class="commentList"></ul>
+            <input type="text" class="commentInput" placeholder="댓글을 입력하세요">
+            <button class="commentSubmit">등록</button>
+        </div>
+        <hr>
+    `;
+    
+    div.querySelector(".completeBtn")
+        .addEventListener("click", e => {
+            e.stopPropagation();  
+            toComplete(todo.id);  // 함수호출, todo.id 라는 인자를 전달함.
+            console.log("완료버튼 클릭");
+
+        });
+
+        // 좋아요 버튼 이벤트 등록    
+    div.querySelectorAll('.likeBtn').forEach(btn => {
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            toggleLike(btn.dataset.id); // "data-id" 속성에 담긴 값을 인자로 전달해서 toggleLike() 함수를 실행하라.
+        });
+    });
+
+    // 북마크 버튼 이벤트 등록    
+    div.querySelector('.bookmarkBtn').addEventListener('click', function(e) {
+        e.stopPropagation();
+        toggleBookmark(todo.id);
+    });
+
+    // 댓글 등록 버튼
+    div.querySelector('.commentSubmit').addEventListener('click', e => {  
+        e.stopPropagation();
+        const commentInput = div.querySelector('.commentInput');
+        const content = commentInput.value;
+        if (content.trim()) {
+            postComment(todo.id, content);
+            commentInput.value = '';
+        }
+    });
+
+    // 댓글 토글 버튼
+    div.querySelector('.commentToggleBtn').addEventListener('click', e => {
+        e.stopPropagation();
+        const commentBox = div.querySelector('.commentBox');
+        commentBox.style.display = (commentBox.style.display === 'none') ? 'block' : 'none';
+        loadComments(todo.id, div.querySelector('.commentList'));
+    });
+
+
+    // 댓글 입력창 클릭 시, 상위 div 클릭 이벤트(상세페이지 이동)를 막는다
+    div.querySelector('.commentInput')
+        .addEventListener('click', e => e.stopPropagation());
+
+    // 새창 링크의 이벤트 전파 차단    
+    div.querySelector('.detail-link')?.addEventListener('click', e => {
+    e.stopPropagation(); // 상위 div 클릭 이벤트 막기
+
+        // 새창 열기 (크기와 위치 지정)
+        window.open(
+            `/interaction/todo/detail/${todo.id}/`, // 열 URL
+            '_blank', // 새창
+            'width=600,height=600,top=100,left=200,scrollbars=yes,resizable=yes' // 옵션
+            ); 
+    });  
+
+
+
+    return div;
+}
+
+/*
+createTodoElement(todo) 내의 .completeBtn 클릭 이벤트 발생
+toComplete(todo.id) 호출 -> axiosInstance.patch()로 서버에 완료 요청
+완료 처리 성공 시 -> loadTodoList(1)로 다시 불러오기
+목록을 다시 불러올 때 -> todo.complete === true인 항목에 complete 클래스 추가 -> 밑줄css 적용
+*/
+
+// 3-3-2. 완료버튼 클릭시 todo 항목을 완료 상태료 변경
+function toComplete(id){
+    axiosInstance.patch(`/todo/viewsets/view/${id}/`, {complete:true}) // patch = update 
+    .then(() => loadTodoList(currentPage)) //둘다 성공하면 then사용 False -> True 서버전송 -> 전달
+    .catch(err => console.error("완료 처리 실패:", err)); //에러처리 = 조건문으로 들어간다. 
+}
+
+// 3-3-3. 상세 페이지로 이동 트리거가 없다.(<- 이전, 1 2 3, -> 다음)
+function detailView(id) {
+    window.location.href = `/todo/detail/${id}/`;
+}
+
+// 3-4. 페이지네이션 구성
+function renderPagination(data, currentPage){
+    const wrapper = document.querySelector(".pagination");
+    wrapper.innerHTML ="";
+
+    const totalPages = data.page_count; // 총 페이지 갯수를 변수에 저장
+
+    // 이전 페이지 버튼
+    const prevBtn = document.createElement("button");
+    prevBtn.innerText = "<";
+    prevBtn.disabled = !data.previous;
+    // data.previous 이전데이터 DRF 기본적으로 제공해주는 페이지네이션 응답 속성 이름
+    prevBtn.addEventListener("click", () => loadTodoList(currentPage -1) );
+    wrapper.appendChild(prevBtn);
+
+    // 개별 페이지 버튼들 생성
+    for(let i = 1; i <= totalPages; i++){// for( 초기값; 조건; 증가)( if(){} )
+        const btn = document.createElement("button");
+        btn.innerText = i;
+        if(i === currentPage){
+            btn.disabled = true;
+            btn.classList.add("active") // css로 .active 스타일 지정
+        }
+        btn.addEventListener("click", () => loadTodoList(i));
+        wrapper.appendChild(btn);
+    } 
+
+    // 다음 페이지 버튼 
+    const nextBtn = document.createElement("button");
+    nextBtn.innerText = ">";
+    nextBtn.disabled = !data.next;
+    nextBtn.addEventListener("click", () => loadTodoList(currentPage + 1) );
+    wrapper.appendChild(nextBtn);
+}
+
+
+// 좋아요 토글 함수
+function toggleLike(id) {
+    axiosInstance.post(`/api/interaction/likes/${id}/toggle/`)
+        .then(res => {
+            const { is_liked, like_count } = res.data;
+            const btn = document.querySelector(`.likeBtn[data-id="${id}"]`);
+            if (btn) btn.innerHTML = `${is_liked ? '💔' : '❤️'} <span class="count">${like_count}</span>`;
+        })
+        .catch(err => console.error(" 좋아요 토글 실패:", err));
+}
+
+
+
+// 북마크 토글 함수
+function toggleBookmark(id) {
+    axiosInstance.post(`/api/interaction/bookmarks/${id}/toggle/`)
+        .then(res => {
+            const { is_bookmarked, bookmark_count } = res.data;
+            const btn = document.querySelector(`.bookmarkBtn[data-id="${id}"]`);
+            if (btn) btn.innerHTML = `🔖 <span class="count">${bookmark_count}</span>`;
+        })
+        .catch(err => console.error(' 북마크 토글 실패:', err));
+}
+
+
+// 댓글 등록 함수
+function postComment(todoId, content) {
+  if (!content) return alert("댓글을 입력하세요");
+  axiosInstance.post("/api/interaction/comments/", { todo_pk: todoId, content: content })
+    .then(() => {
+      loadComments(todoId, document.querySelector('.commentList'));
+    })
+    .catch(error => {
+      console.error(" 댓글 등록 실패:", error.response?.data || error);
+      alert(" 댓글 등록 실패:\n" + JSON.stringify(error.response?.data, null, 2));
+    });
+}
+
+// 댓글 목록 로딩 함수
+function loadComments(todoId, listElement) {
+  axiosInstance.get(`/api/interaction/comments/`, { params: { todo_pk: todoId } })
+    .then(res => {
+      const payload = Array.isArray(res.data) ? res.data : Array.isArray(res.data.results) ? res.data.results : (res.data.data || []);
+      /*
+      위 코드는 조건문이 두 개 연결되어 있는 형태
+      if (Array.isArray(res.data)) {
+          payload = res.data;
+      } else if (Array.isArray(res.data.results)) {
+          payload = res.data.results;
+      } else {
+          payload = res.data.data || [];
+      }
+      */
+      listElement.innerHTML = '';
+      payload.forEach(c => {
+        const li = document.createElement('li');
+        li.innerHTML = `${c.user.username || c.username}: ${c.content} 
+          <button class="comment-like-btn" data-id="${c.id}">👍 ${c.like_count}</button>`;
+        li.querySelector('.comment-like-btn')?.addEventListener('click', e => {
+          e.stopPropagation();
+          toggleCommentLike(c.id);
+        });
+        listElement.appendChild(li);
+      });
+    })
+    .catch(err => console.error('댓글 로드 실패:', err));
+}
+
+// 댓글 좋아요 토글 함수
+function toggleCommentLike(commentId) {
+  axiosInstance.post(`/api/interaction/commentlikes/${commentId}/toggle/`)
+    .then(res => {
+      const btn = document.querySelector(`.comment-like-btn[data-id="${commentId}"]`);
+      if (btn) btn.innerHTML = `👍 ${res.data.like_count}`;
+    })
+    .catch(err => console.error("댓글 좋아요 실패:", err));
+}
+
+
+
+
+</script>
+{% endblock %}
+
+
+
+
+
+
+
+
+
+
+{% comment %} 
+    function toggleLike(id) {
+        axiosInstance.post(`/api/interaction/likes/${id}/toggle/`) // 이 요청은 해당 Todo에 대해 "좋아요를 누르거나 취소"하는 기능이다.
+            .then(res => { //서버로부터 받은 응답에서 is_liked와 like_count 값을 추출한다.
+                const { is_liked, like_count } = res.data; //is_liked: 현재 유저가 이 Todo를 좋아요 눌렀는지 여부 (true/false), like_count: 이 Todo를 좋아요 누른 총 사람 수
+
+                const btn = document.querySelector(`.likeBtn[data-id="${id}"]`);
+                if (btn) btn.innerHTML = `${is_liked ? '💔' : '❤️'} <span class="count">${like_count}</span>`;
+                // 버튼이 실제 존재한다면: 좋아요 상태에 따라 아이콘을 변경 (❤️ → 좋아요 가능, 💔 → 좋아요 취소 가능), 옆에 좋아요 수(like_count)를 함께 출력
+            })
+            .catch(err => console.error(" 좋아요 토글 실패:", err)); 
+    }
+
+    //✅ 추가
+    function toggleBookmark(id) { //북마크 토글을 처리하는 함수. id는 Todo의 ID이다.
+        axiosInstance.post(`/api/interaction/bookmarks/${id}/toggle/`)
+            .then(res => {
+                const { is_bookmarked, bookmark_count } = res.data; // 서버에서 받은 응답 객체에서 북마크 상태와 개수를 추출한다.
+                const btn = document.querySelector(`.bookmarkBtn[data-id="${id}"]`); // DOM에서 해당 Todo ID를 가진 북마크 버튼을 선택한다.
+                if (btn) btn.innerHTML = `🔖 <span class="count">${bookmark_count}</span>`; //버튼이 존재하면, 아이콘과 북마크 수를 UI에 반영한다.
+            })
+            .catch(err => console.error(' 북마크 토글 실패:', err)); //요청 중 오류가 발생하면 콘솔에 출력한다.
+    }
+
+    //✅ 추가
+    function toggleCommentLike(commentId) {  // ✅ 댓글에 좋아요 토글을 처리하는 함수. commentId는 댓글의 ID이다.
+    axiosInstance.post(`/api/interaction/commentlikes/${commentId}/toggle/`) //특정 댓글에 대해 좋아요를 추가하거나 취소하는 요청을 서버로 보낸다.
+        .then(res => {
+        const btn = document.querySelector(`.comment-like-btn[data-id="${commentId}"]`); //해당 댓글 ID를 가진 좋아요 버튼을 DOM에서 선택한다.
+        if (btn) btn.innerHTML = `👍 ${res.data.like_count}`;//버튼이 존재하면, 좋아요 아이콘과 좋아요 수를 새로 출력한다.
+        })
+        .catch(err => console.error("댓글 좋아요 실패:", err));//에러 발생 시 콘솔에 실패 내용 출력
+    }
+
+    //✅ 특정 Todo에 댓글을 등록하는 함수. todoId는 Todo의 ID, content는 댓글 내용이다.
+    function postComment(todoId, content) {
+    if (!content) return alert("댓글을 입력하세요");//댓글 내용이 없으면 사용자에게 입력을 요청하고 함수 실행을 중단한다.
+    axiosInstance.post("/api/interaction/comments/", { todo_pk: todoId, content: content })//서버에 댓글 생성 요청을 보낸다.todo_pk는 어떤 Todo에 대한 댓글인지 지정하는 필드이다.
+        .then(() => {
+        loadComments(todoId, document.querySelector('.commentList'));//해당 Todo에 달린 전체 댓글을 다시 불러와서 화면에 표시한다.
+        })
+        .catch(error => {
+        console.error(" 댓글 등록 실패:", error.response?.data || error);//콘솔에 에러 메시지 출력
+        alert(" 댓글 등록 실패:\n" + JSON.stringify(error.response?.data, null, 2));//사용자에게도 오류 내용을 팝업으로 보여준다.
+        });
+    } {% endcomment %}
+
+
+
+{% comment %} function loadComments(todoId, listElement) {
+  // ✅ 1. 댓글 데이터를 서버에서 가져오기 위한 GET 요청
+  axiosInstance.get(`/api/interaction/comments/`, { params: { todo_pk: todoId } })
+  
+    // ✅ 2. 서버 응답을 처리하는 then 블록 시작
+    .then(res => {
+
+      // ✅ 3. 응답 데이터 구조에 따라 배열 형태로 정제하기
+      const payload = Array.isArray(res.data)           // 3-1. 응답이 배열 형태면 그대로 사용
+        ? res.data
+        : Array.isArray(res.data.results)               // 3-2. results 키가 있으면 그걸 사용
+          ? res.data.results
+          : (res.data.data || []);                      // 3-3. data 키 안에 배열이 있으면 사용, 없으면 빈 배열
+
+      // ✅ 4. 댓글 리스트 UI를 초기화 (기존 댓글들 제거)
+      listElement.innerHTML = '';
+
+      // ✅ 5. 각 댓글 객체(c)에 대해 화면에 댓글 항목(li)을 생성
+      payload.forEach(c => {
+
+        // ✅ 6. li 요소 생성
+        const li = document.createElement('li');
+
+        // ✅ 7. 댓글 내용 + 좋아요 버튼을 li에 삽입 (HTML 문자열로)
+        li.innerHTML = `${c.user.username || c.username}: ${c.content} 
+          <button class="comment-like-btn" data-id="${c.id}">👍 ${c.like_count}</button>`;
+
+        // ✅ 8. 좋아요 버튼에 클릭 이벤트 리스너 추가 (댓글 좋아요 토글)
+        li.querySelector('.comment-like-btn')?.addEventListener('click', e => {
+          e.stopPropagation();               // 8-1. 부모 요소로 이벤트 전파 막기
+          toggleCommentLike(c.id);          // 8-2. 댓글 좋아요 처리 함수 호출
+        });
+
+        // ✅ 9. 댓글 li 요소를 댓글 리스트에 추가
+        listElement.appendChild(li);
+      });
+    })
+
+    // ✅ 10. 요청 실패 시 에러 출력
+    .catch(err => console.error('댓글 로드 실패:', err));
+} {% endcomment %}
+
+{% comment %} a => b a는 전달 값 b는 상댓 값{% endcomment %}
+
+
+
+{% comment %} 
+// 리스트 로드 & 데이터처리
+// 목록불러오기, 특정목록을 클릭 pk -> 링크 -> 페이지네이션은 viewset이랑 어울린다. 그래서 적립만 설정
+// 지정한 페이지 번호의 Todo 목록을 서버에서 받아와서 화면에 보여준다.
+function loadTodoList(page){ //page 페이지네이션데이터 ㅁ = [1,2,3] -> 중첩구조
+    fetchTodoData(page) //axios 역활을 한다
+    .then(data => {
+
+        // 받아온 데이터에서 실제 todo 항목만 필드(object)에서 꺼냄
+        const todos = extractTodoArray(data):
+        renderTodoList(todos); //화면에 출력
+        renderPagination(data, page);
+    })
+    .catch(err => console.error('리스트 로드 실패', err))
+
+}
+
+// axios를 이용해서 해당 (한)페이지의 Todo 데이터를 서버로 부터 가져온다.
+function fetchTodoData(page){
+    return axiosInstance
+    .get("/todo/api/list/?page=${page}") // list의 pk를 부른다. 주소불러온다.
+    //.get("/todo/제너릭/list/?page=${page}") 제너릭방식
+   // .get("/todo/뷰셋/뷰/list/?page=${page}") 뷰셋방식
+    .then(res => res.data);
+} {% endcomment %}
+
+
+   
+
+
+
+{% comment %} 
+- 도큐먼트에 이벤트를 건다 돔에 컨텐트가 로드가 되면 집어넣는; (이벤트 함수 생성)
+- UTEvent : 로딩되서 두 함수를 건드려준다.
+  init을 연결고리로 생성해서 {} 안에다가 함수 생성 Id 를 가져오는 함수가(); 안에서 실행됨.
+  데이터를 투두리스트(pk); 로 가지고온다. (pk)=(1) 1번부터 가지고온다.
+  데이터가 1000개의 글이 있는데 그걸 다 부를수없어서 어느정도만 부를려고한다. 10,5개씩 끊어서 그룹으로 연결한 덩어리 즉 한 꾸러미가 페이지네이션
+- 목록불러오기는 쓸건 아니지만 랜더링해서 형식상 만들어놓은것 
+- {% endcomment %}
+
+
+
+
+
+
+
+
+
+
+
+{% comment %} {% for todo in todos %}
+        <div class"todo-item">
+            <p>{{todo.name}}</p>
+            <p>{{todo.description}}</p>
+            <p>{{todo.complete}}</p>
+            <p>{{todo.completed_at}}</p>
+            <p>{{todo.exp}}</p>
+            <hr>
+        </div> 
+    {% empty %}
+        <p>등록된 할일이 없습니다</p>
+    {% endfor %}
+
+
+
+    const pk = getTodoId();
+
+
+    // 문서가 로드되면 리스트 항목을 불러와라 가장 밖쪽 (){});중에 ()에는 함수가 들어간다.
+    document.addEventListener("DOMContentLoaded", function(){
+        console.log("list loading!!")
+    });
+    // 버튼을 클릭하면 엑시오스가 서버에 접속해라."click", ()={}{}function과 같은 과정이다.
+    document.getElementById("createBtn").addEventListener("click", () => {
+        console.log("createBtn click!!")
+    }); {% endcomment %}
+

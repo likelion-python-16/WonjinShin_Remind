@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<div class="container">
+  <h2>Create a New Todo</h2>
+    <div>
+      <label for="name">Name:</label>
+      <input type="text" name="name" id="name">
+    </div>
+    <div>
+      <label for="description">Description:</label>
+      <textarea name="description" id="description"></textarea>
+    </div>
+    <div>
+        <label for="complete">Complete:</label>
+        <input type="checkbox" name="complete" id="complete">
+    </div>
+    {% comment %} <div>
+      <label for="completed_at">Completed At:</label>
+      <input type="datetime-local" name="completed_at" id="completed_at">
+      </div> {% endcomment %}
+    <div>
+      <label for="image">Images:</label>
+      <input type="file" name="image" id="image">
+    </div>
+    <div>
+      <label for="exp">Experience Points:</label>
+      <input type="number" name="exp" id="exp" min="0">
+  </div>
+  <button type="submit" id="todoCreate">Create</button>
+</div>
+
+<script>
+// 1. 초기화
+document.addEventListener("DOMContentLoaded",init);
+
+// 2.UI이벤트 
+function init(){
+  binUIEvents(); // 버튼에 클릭 이벤트 연결
+}
+
+// UI 이벤트 바인딩
+// 이벤트 종류 : 클릭, 스크롤, 탭(TAB)키, 문서로딩 숫자누르기 .....
+function binUIEvents(){
+  //클릭이벤트의 조건 : ID식별자. 클릭하면. 어떻게 해라
+  const btn = document.getElementById("todoCreate");
+  // 방어코드
+  if(!btn)return;
+  btn.addEventListener("click", onCreateClick);
+}
+
+// 데이터 수집 및 전송
+function onCreateClick(){
+  console.log("버튼클릭!")
+  // 데이터 수집
+  const payload = gatherFormData();// = 데이터 수집함수();
+
+  // 서버에 전송
+  createTodo(payload); //= 서버에 저장되는 함수();
+}
+
+
+// 데이터 평탄화
+{% comment %} function gatherformData(){
+  let expVal = document.getElementById('exp').value;
+  if(expVal === "") expVal = 0;
+
+  const completedAtInput = document.getElementById('completed_at').value; //완료시간 수정불가
+  const completedAt = completedAtInput ? new Date(completedAtInput).toISOString() : null; 
+
+  return{
+    // 수동적 구조 해체방식
+    name : document.getElementById('name').value, // 문자형태
+    description : document.getElementById('description').value, 
+    complete : document.getElementById('complete').checked,
+    completed_at : completedAt,
+    exp : Number(expVal),
+
+  };
+
+} {% endcomment %}
+
+function gatherFormData(){
+
+  // 데이터 처리 메서드 객체 생성
+  const formData = new FormData();
+
+  // 숫자처리
+  // let expVal = document.getElementById('exp').value;
+  // if(expVal === "") expVal = 0;
+  const expInput = document.getElementById('exp');
+  const expVal = expInput && expInput.value.trim() !=="" ? Number(expInput.value) : 0;
+
+
+  // 날짜처리 (model에 있는 오버라이딩으로 인해 자동처리가 되기때문에 필요가 없어 주석처리)
+  // const completedAtInput = document.getElementById('completed_at').value; //완료시간 수정불가
+  // const completedAt = completedAtInput ? new Date(completedAtInput).toISOString() : null;
+  
+  // 텍스트 필드 추가
+  formData.append("name",document.getElementById('name').value);
+  formData.append("description",document.getElementById('description').value);
+  formData.append("complete",document.getElementById('complete').checked);
+  // formData.append("completed_at",completedAt);
+  formData.append("exp",Number(expVal));
+
+  // 이미지 파일 추가
+const imageInput = document.getElementById('image');// 이미지 파일이 맞는지 이미지 파일 갯수 > 0 클때
+if(imageInput && imageInput.files.length > 0){
+  formData.append("image", imageInput.files[0]); // 사용자가 선택한 첫번째 이미지 객체이다.
+} 
+return formData;
+
+}
+
+// --- 6. API 호출: Todo 생성 요청 -----------------------------------------
+function createTodo(data) {
+  axiosInstance
+    .post('/todo/viewsets/view/', data) // 엔드포인트
+    .then(onCreateSuccess) // 7번: 성공 시 처리
+    //.catch(onCreateError); // ✅ 아래 코드와 같이 수정
+    .catch(err => {
+      console.error("Todo 생성 실패: ", err.response?.data || err);
+    });
+}
+
+// --- 7. 생성 성공 핸들러: 목록 페이지로 이동 -----------------------------
+function onCreateSuccess(response) {
+  // 생성 후 목록 페이지로 이동
+  window.location.href = '/todo/list/';
+}
+
+// --- 8. 생성 실패 핸들러: 에러 알림 --------------------------------------
+function onCreateError(error) {
+  console.error('Todo 생성 실패:', error);
+  alert('Todo 생성에 실패했습니다.');
+}
+
+</script>
+
+{% endblock %}
+
+
+
+{% comment %} 
+let 재할당을 줄수있다. 
+const 상수개념으로 재할당을 줄수없다. 
+document.getElementById("todoCreate").addEventListener("click", ()=> {
+    console.log("create click")
+}
+{% endcomment %}
+
+
+
+
+{% comment %} <script>
+/*
+처리해야할 기능
+1. 문서 로드 후 초기화:
+2. 생성버튼 이벤트 바인딩: 클릭이벤트등 UI요소와 연결하는작업
+3. 버튼 클릭시 동작실행:
+4. 폼 데이터 수집:
+5. 비어있는 숫자 처리:
+6. 서버에 post 요청보내기
+7. 요청 성공처리
+8. 요청 실패처리 당연히 만들어줘야하는 것
+빈공백으로 데이터 넘길때
+입력값 검증
+UI 피드백 로딩중 저장중 ....... 성공했습니다!..
+날짜 유효성 검사:
+*/
+
+// 1. 초기화
+document.addEventListener("DOMContentLoaded",init);
+
+// 2.UI이벤트 
+function init(){
+  binUIEvents(); // 버튼에 클릭 이벤트 연결
+}
+
+// UI 이벤트 바인딩
+// 이벤트 종류 : 클릭, 스크롤, 탭(TAB)키, 문서로딩 숫자누르기 .....
+function binUIEvents(){
+  //클릭이벤트의 조건 : ID식별자. 클릭하면. 어떻게 해라
+  const btn = document.getElementById("todoCreate");
+  // 방어코드
+  if(btn) return;
+  btn.addEventListener("click", onCreateClick);
+}
+// {% if user.is_auth %} <button 클릭할수 있고 {% %} 접근권한 조건문
+// 만약 유저가 접근 권한이 있을때 버튼을 클릭할수있고...
+
+// 데이터 수집 및 전송
+function onCreateClick(){
+  // 데이터 수집
+  const payload = getherformData();// = 데이터 수집함수();
+
+  // 서버에 전송
+  createTodo(payload); //= 서버에 저장되는 함수();
+}
+
+
+// 데이터 평탄화
+function gatherformData(){
+  let expVal = document.getElementById('exp').value;
+  // expVal이 문자열 "" 이면 expVal에 0을 넣어라
+  if(expVal === " ") expVal = 0;
+  // 파이썬 input("0") ---> "0"
+  //"0" == true === False. ✅ === 엄격한 비교이다
+  // 예상치 못한 자동 변환 때문에 버그가 발생할 가능을 대비하여 === 를 작성합니다.
+
+  const completedAtInput = document.getElementById('completed_at').value; //완료시간 수정불가
+  // completedAtInput 값이 있으면 -> Date 객체로 변환해서 ISO형식으로 문자열로 만들고 없으면 null로 설정해라
+  // 자바스크립트 삼항연산자
+  const completedAt = completedAtInput ? new Date(completedAtInput).toISOString() : null; 
+
+  return{
+    // 수동적 구조 해체방식
+    name : document.addEventListener('name').value, // 문자형태
+    description : document.addEventListener('description').value, 
+    complete : document.addEventListener('complete').checked,
+    completed_at : completedAt,
+    exp : Number(expVal),
+    // 플렛폼 들어오는 데이터 input json(key,value), 
+    // 페이지네이션 DRF -> 중첩 (키:값{1,2,3)
+    // 웹크로링 ai 접목
+    /*<div>
+      <p>title : "공부하기"></p>
+      <ul>
+        <li></li>
+      </ul>
+    </div>
+    {
+    title: "공부하기"
+    u;: 값
+    li: 값
+    }
+    
+    */
+  };
+
+}
+/*
+// 서버전송
+fucntion createTodo(payload){
+.then(response =>{
+  window.location.href = "/todo/list/";
+})//서버에 데이터를 저장한 후 이동할 페이지 링크
+.catch(error =>{
+  console.error("todo 생성 실패",error);
+  alert("todo 생성 실패했습니다.");
+  ")}//에러에서 경고창
+)
+}*/
+// 서버전송
+function createTodo(payload){
+  axiosInstance.post("/todo/api/create/",patload) // 어디로 이동
+  .then(onCreateSuccess())//서버에 데이터를 저장한 후 이동할 페이지 링크
+  .catch(onCreateError())// 에러에서 경고창
+}
+fucntion onCreateSuccess(){
+  window.location.href = "/todo/list/"
+}
+fucntion onCreateError(){
+  console.error("todo 생성 실패", error);
+  alert("todo 생성이 실패했습니다.")
+
+}
+
+// 서버전송
+function createTodo(payload){
+    axiosInstance.post("/todo/api/create/", payload) // 어디로 이동
+    .then(response => {
+        window.location.href = "/todo/list/";
+    })//서버에 데이터를 저장한 후 이동할 페이지 링크
+    .catch(error =>{
+        console.error("todo 생성 실패", error);
+        alert("todo 생성 실패했습니다.");
+    }) // 에러메시 경고창 
+}
+
+{% comment %} function onCreateSuccess(){
+    window.location.href = "/todo/list/"
+}
+
+function onCreateError(error){
+    console.error("todo 생성 실패", error);
+    alert("todo 생성 실패했습니다.")
+} 
+    // 서버전송
+function createTodo(payload){
+  axiosInstance.post("/todo/api/create/",payload) // 어디로 이동
+  .then(onCreateSuccess())//서버에 데이터를 저장한 후 이동할 페이지 링크
+  .catch(onCreateError())// 에러에서 경고창
+}
+function onCreateSuccess(){
+  window.location.href = "/todo/list/"
+}
+function onCreateError(){
+  console.error("todo 생성 실패", error);
+  alert("todo 생성이 실패했습니다.")
+</script>
+
+{% endblock %}
+ {% endcomment %}

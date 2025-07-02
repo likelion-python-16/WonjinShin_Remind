@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+
+<div class="todoDetail"></div>
+<div>
+    <button class="todoUpdate">수정</button>
+    <button class="todoDelete">삭제</button>
+</div>
+<script>
+// --- 1. 초기화 ---
+document.addEventListener("DOMContentLoaded", init);
+
+// --- 2. init ---
+function init(){
+  // URL에서 pk(기본키)추출 -> /todo/update/5/ --->$
+  const pk = getTodoId(); // pk를 가져오는 함수 -> 변수저장
+  loadTodoDetail(pk); // 서버에서 해당 todo 상세정보 불러오기
+  bindUpdateButton(pk); // 수정 버튼 이벤트 등록
+  bindDeleteButton(pk); // 삭제 버튼 이벤트 등록
+}
+
+// ---3.URL에서 pk 추출 ---
+function getTodoId(){
+  return window.location.pathname.split('/').filter(Boolean).pop();
+}
+
+// --- 4. 서버에서 todo 상세정보를 조회해서 렌더링 함수에 전달 ---
+function loadTodoDetail(pk){
+    axiosInstance
+    .get(`/todo/viewsets/view/${pk}/`)
+    .then(res => renderTodoDetail(res.data)) //성공하면 받은 데이터 랜더링을 함수로 전달
+    .catch(err => console.error('로딩실패', err));
+}
+
+// ---5. 받아온 todo 데이터를 화면애 랜더링 (출력) ----
+function renderTodoDetail(data){
+    const container = document.querySelector(".todoDetail");
+    container.innerHTML = `
+        <div class="todo-item">
+            <p><strong>Name:</strong> ${data.name}</p>
+            <p><strong>Description:</strong> ${data.description}</p>
+            <p><strong>Complete:</strong> ${data.complete}</p>
+            <p><strong>Completed At:</strong> ${datetimeToString(data.completed_at)}</p>
+            <p><strong>Experience Points:</strong> ${data.exp}</p>
+            <button class="completeBtn">완료</button>
+        </div>    
+    `;
+
+}
+
+//--- 6. 수정 update로 링크
+function bindUpdateButton(pk){
+
+    // 김씨가 버튼 자기 자신을 눌러서 update 페이지로 이동
+    const btn = document.querySelector('.todoUpdate');
+    if (!btn) return
+    btn.addEventListener('click', () => {
+        window.location.href = `/todo/update/${pk}/`;
+    });
+}
+
+function bindDeleteButton(pk){
+
+    // 삭제버튼 클릭하면 삭제를 해라
+    const btn = document.querySelector('.todoDelete');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+        if (!confirm('정말 해당 todo를 삭제하시겠습니까?')) return; //UX접근 
+        //삭제요청보기 
+        axiosInstance
+            .delete(`/todo/viewsets/view/${pk}/`)
+            .then(() => window.location.href = '/todo/list/') //성공 이후 리스트로 이동
+            .catch(() => alert('Todo 삭제에 실패했습니다.')); 
+    });
+}
+
+
+
+
+</script>
+
+{% endblock %}

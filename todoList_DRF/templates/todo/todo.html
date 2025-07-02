@@ -1,0 +1,28 @@
+{% comment %} class Todo(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    complete = models.BooleanField(default=False)
+    exp = models.PositiveIntegerField(default=0)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True) 
+    {% endcomment %}
+
+{% for todo in todos %}
+
+    <p>{{ todo.name }}</p>
+    <p>{{ todo.description }}</p>   
+    <p>{{ todo.complete }}</p> 
+    <p>{{ todo.created_at }}</p> 
+    <p>-----------1-------------</p>
+
+    {% if todo.description %}
+	    <p>{{ todo.description }}</p>
+	{% else %}
+	    No description
+	{% endif %}
+        <p>{{ todo.complete }}</p>
+        <p>{{ todo.created_at }}</p>
+    <p>-----------2-------------</p>
+
+{% endfor %}
