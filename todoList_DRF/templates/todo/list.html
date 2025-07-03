@@ -34,14 +34,12 @@ function init(){
 
 // 2-1 UI 이벤트 바인딩: "Todo 등록하기" 버튼 클릭 시 등록 페이지로 이동
 function UIEvents(){
-    document.getElementById("createBtn")
-        .addEventListener("click", onCreateClick);
+    document.getElementById("createBtn")?.addEventListener("click", onCreateClick);
     /* 검색 버튼 이벤트 바인딩 */
-    document.getElementById("searchBtn")
-        .addEventListener("click", () =>{
-            currentSearch = document.getElementById("searchInput").value.trim();
-            loadTodoList(1); // 새로고침 (list, page, search))
-        })
+    document.getElementById("searchBtn")?.addEventListener("click", () =>{
+        currentSearch = document.getElementById("searchInput").value.trim();
+        loadTodoList(1); // 새로고침 (list, page, search))
+    });
         /*
         Input 입력값을 읽어온다.
         앞뒤 공백을 제거한 입력값을 변수에 저장 공백값을 제거하지않으면 쓸데없는 데이터들이 같이 따라 불려온다.
@@ -119,8 +117,8 @@ function createTodoElement(todo){
         <p><strong>Completed At:</strong> ${datetimeToString(todo.completed_at)}</p>
         <p><strong>Experience Points:</strong> ${todo.exp}</p>
         <p><strong>Image:</strong><br> ${todo.image ? `<img src="${todo.image}" alt="${todo.image}" width="150">` : ""}</p>
-        <button class="completeBtn">완료</button>
-       <div class="todo-interactions">
+        
+        <div class="todo-interactions">
             <button class="social-btn likeBtn" data-id="${todo.id}"><span class="icon">${todo.is_liked ? '💔' : '❤️'}</span> <span class="count">${todo.like_count}</span></button>
             <button class="social-btn bookmarkBtn" data-id="${todo.id}"><span class="icon">🔖</span><span class="count">${todo.bookmark_count}</span></button>
             <button class="social-btn commentToggleBtn"><span class="icon">💬</span><span class="count">${todo.comment_count || 0}</span></button>
@@ -131,6 +129,10 @@ function createTodoElement(todo){
             <ul class="commentList"></ul>
             <input type="text" class="commentInput" placeholder="댓글을 입력하세요">
             <button class="commentSubmit">등록</button>
+        </div>
+
+        <div class="todo-interactions">
+            <button class="completeBtn">완료</button>
         </div>
         <hr>
     `;
@@ -152,9 +154,17 @@ function createTodoElement(todo){
     });
 
     // 북마크 버튼 이벤트 등록    
-    div.querySelector('.bookmarkBtn').addEventListener('click', function(e) {
-        e.stopPropagation();
-        toggleBookmark(todo.id);
+    //div.querySelector('.bookmarkBtn').addEventListener('click', function(e) {
+    //    e.stopPropagation();
+    //    toggleBookmark(todo.id);
+    //});
+
+    //✅ 북마크
+    div.querySelectorAll('.bookmarkBtn').forEach(btn => {
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            toggleBookmark(btn.dataset.id); // data-id 속성에서 ID 꺼내서 toggleBookmark 호출
+        });
     });
 
     // 댓글 등록 버튼
@@ -185,12 +195,12 @@ function createTodoElement(todo){
     div.querySelector('.detail-link')?.addEventListener('click', e => {
     e.stopPropagation(); // 상위 div 클릭 이벤트 막기
 
-        // 새창 열기 (크기와 위치 지정)
-        window.open(
-            `/interaction/todo/detail/${todo.id}/`, // 열 URL
-            '_blank', // 새창
-            'width=600,height=600,top=100,left=200,scrollbars=yes,resizable=yes' // 옵션
-            ); 
+    // 새창 열기 (크기와 위치 지정)
+    window.open(
+        `/interaction/todo/detail/${todo.id}/`, // 열 URL
+        '_blank', // 새창
+        'width=600,height=600,top=100,left=200,scrollbars=yes,resizable=yes' // 옵션
+        ); 
     });  
 
 

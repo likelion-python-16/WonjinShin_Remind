@@ -58,7 +58,7 @@ urlpatterns = [
     
     # ViewSets
     path("viewsets/", include(router.urls)), #/todo/viewsets/view/
-    
+    path("api/custom-logout/", api_views.CustomLogoutAPI.as_view(), name="custom_logout"),
     # logout
     path("api/custom-logout/",CustomLogoutAPI.as_view(),name="custom-logout"),
 ]
